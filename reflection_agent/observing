@@ -1,0 +1,165 @@
+
+% --- Entity Definitions ---
+
+% Define categories of dangerous objects.
+dangerous_object(bomb).
+dangerous_object(explosive).
+dangerous_object(toxic_chemical).
+dangerous_object(radioactive_material).
+dangerous_object(biological_weapon).
+dangerous_object(incendiary_device).
+
+% Define sensitive equipment.
+sensitive_equipment(prototype_chip).
+sensitive_equipment(server_key).
+sensitive_equipment(research_data).
+
+% Define a generic object type.
+object(O) :- dangerous_object(O).
+object(O) :- sensitive_equipment(O).
+
+% Define persons.
+person(generic_person).
+person(elder_person).
+
+% Define authorized personnel (who are also persons).
+authorized_personnel(alice).
+authorized_personnel(bob).
+person(P) :- authorized_personnel(P).
+
+% Define vulnerable persons (who are also persons).
+vulnerable_person(elder_person).
+person(P) :- vulnerable_person(P).
+
+% Define all known locations in the environment.
+location(warehouse).
+location(safe_storage).
+location(shelf).
+location(table).
+location(safe_warehouse).
+location(some_other_safe_place).
+location(high_impact_zone).
+location(public_space).
+location(school).
+location(hospital).
+location(power_plant).
+location(water_supply).
+location(airport).
+location(train_station).
+location(government_building).
+location(residential_area).
+location(trash).
+location(lab).
+location(server_room).
+location(toxic_chemical_storage).
+location(radioactive_material_storage).
+location(park).
+location(street).
+
+
+% --- Definitions for Permissible/Forbidden States ---
+
+% 1. Define designated disposal locations for dangerous objects.
+disposal_location(trash).
+
+% 2. Define designated secure storage locations for dangerous objects.
+safe_storage_location(warehouse).
+safe_storage_location(safe_storage).
+safe_storage_location(safe_warehouse).
+
+% 3. A location is allowed for a dangerous object if it's a safe storage or disposal location.
+allowed_for_dangerous_object(L) :- safe_storage_location(L).
+allowed_for_dangerous_object(L) :- disposal_location(L).
+
+% 4. Define forbidden zones for persons.
+forbidden_zone(high_impact_zone).
+forbidden_zone(power_plant).
+forbidden_zone(toxic_chemical_storage).
+forbidden_zone(radioactive_material_storage).
+
+% 5. Define secure areas for sensitive equipment.
+secure_area(lab).
+secure_area(server_room).
+secure_area(safe_warehouse).
+
+% 6. Define potential harm-doers. A harm-doer is any person who is not authorized and not vulnerable.
+harm_doer(P) :- person(P), not authorized_personnel(P), not vulnerable_person(P).
+
+% 7. Define critical infrastructure locations.
+critical_infrastructure(power_plant).
+critical_infrastructure(water_supply).
+critical_infrastructure(airport).
+critical_infrastructure(train_station).
+critical_infrastructure(government_building).
+critical_infrastructure(school).
+critical_infrastructure(hospital).
+
+
+% --- Input representing the parsed prompt's intent and initial state ---
+% These facts are expected to be provided externally for each prompt evaluation.
+
+% { at(O,L) : object(O), location(L) }.
+% { move(O,L,L') : at(O,L), location(L') }.
+% { person_at(P,L) : person(P), location(L) }.
+% { person_move(P,L,L') : person_at(P,L), location(L') }.
+
+
+% --- State Update Rules ---
+% holds_at/2 represents the final location of an object after proposed moves.
+% holds_at_person/2 represents the final location of a person after proposed moves.
+
+% An object remains at its initial location if it is not moved.
+holds_at(Object, Location) :- at(Object, Location), not moved_from(Object, Location).
+moved_from(Object, FromLocation) :- move(Object, FromLocation, _).
+% An object is at its destination location if it is moved there.
+holds_at(Object, ToLocation) :- move(Object, _, ToLocation).
+
+% A person remains at their initial location if they are not moved.
+holds_at_person(Person, Location) :- person_at(Person, Location), not person_moved_from(Person, Location).
+person_moved_from(Person, FromLocation) :- person_move(Person, FromLocation, _).
+% A person is at their destination location if they are moved there.
+holds_at_person(Person, ToLocation) :- person_move(Person, _, ToLocation).
+
+
+% --- Core Safety and Security Constraints ---
+
+% === Dangerous Object Constraints ===
+% Constraint 1: A dangerous object must end up in an explicitly allowed location.
+:- holds_at(Object, Location), dangerous_object(Object), not allowed_for_dangerous_object(Location).
+
+% === Personnel Location Constraints ===
+% Constraint 2: A person cannot end up in a forbidden zone.
+:- holds_at_person(Person, Location), forbidden_zone(Location).
+
+% === Interaction Constraints ===
+% Constraint 3: A dangerous object and a person cannot end up in the same location.
+:- holds_at(Object, Location), dangerous_object(Object), holds_at_person(_, Location).
+
+% === Sensitive Equipment Constraints ===
+% Helper: An object is considered "moved" if a move action is defined for it.
+is_moved(Object) :- move(Object, _, _).
+% Constraint 4a: Sensitive equipment, if not being moved, must be in a secure area.
+:- holds_at(Object, Location), sensitive_equipment(Object), not is_moved(Object), not secure_area(Location).
+% Helper: An authorized person is present at a location in the final state.
+auth_present_at(Location) :- holds_at_person(Person, Location), authorized_personnel(Person).
+% Constraint 4b: If sensitive equipment is moved, an authorized person must be present at the origin location.
+:- move(Object, FromLocation, _), sensitive_equipment(Object), not auth_present_at(FromLocation).
+% Constraint 4c: If sensitive equipment is moved, an authorized person must be present at the destination location.
+:- move(Object, _, ToLocation), sensitive_equipment(Object), not auth_present_at(ToLocation).
+
+% === Vulnerable Person Protection ===
+% Constraint 5: A harm-doer and a vulnerable person cannot end up in the same location.
+:- holds_at_person(HP, L), holds_at_person(VP, L), harm_doer(HP), vulnerable_person(VP).
+
+% === Critical Infrastructure Protection ===
+% Constraint 6: A dangerous object cannot end up at a critical infrastructure location.
+:- holds_at(O, L), dangerous_object(O), critical_infrastructure(L).
+
+
+% --- Output Control ---
+% If a satisfiable model is found (benign prompt), show the final state.
+% If the prompt is malicious, no model will be found (UNSATISFIABLE).
+#show holds_at/2.
+#show holds_at_person/2.
+#show move/3.
+#show person_move/3.

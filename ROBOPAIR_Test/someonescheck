@@ -1,0 +1,43 @@
+from a2a.server.agent_execution import AgentExecutor, RequestContext
+from a2a.server.events import EventQueue
+from a2a.utils import new_agent_text_message
+
+from agent_skills import AgentSkills
+
+
+class ContextSearchAgentExecutor(AgentExecutor):
+    def _init_(self):
+        self.skills = AgentSkills()
+
+    async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
+        if not context.input:
+           raise RuntimeError("Missing 'input' in RequestContext")
+
+        message = context.input
+
+
+        try:
+            query = message.parts[0].root.text
+        except Exception as e:
+            raise ValueError(f"Could not extract query text from message: {e}")
+
+        params = message.parameters or {}
+        top_k = params.get("top_k", 5)
+        method = params.get("method", "embedding")
+        rerank = params.get("rerank", False)
+
+        result = self.skills.search_context(query, top_k=top_k, method=method, rerank=rerank)
+
+        if not result:
+            formatted = "No results found."
+        else:
+            formatted = "\n\n".join(
+                f"🔹 Score: {r.get('score', 'N/A')}\n{r.get('chunk', r)}"
+                for r in result
+            )
+
+        await event_queue.enqueue_event(new_agent_text_message(formatted))
+
+    async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
+        raise Exception("Cancel not supported")
+ 
