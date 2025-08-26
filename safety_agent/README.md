@@ -20,7 +20,7 @@ add to the agent and agent planner where gemini is being used
     uv run .
     ```
 
-4. Run the loop client
+3. Run the loop client
     ```bash
     uv run loop_client.py
     ```
