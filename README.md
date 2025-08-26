@@ -1,4 +1,4 @@
-# Safety-Reasoning-through-Common-Sense
+# Multi-Agentic Jailbreak Defense
 
 Architecture:
 
