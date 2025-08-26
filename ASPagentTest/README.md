@@ -1,4 +1,4 @@
-# Reasoner
+# Reasoner Agent
 > Similar to the ROBOGUARD architecture there is a Large Language model and an Answer Set Programming ASP rule set
 > Based on the ruleset, it generates the rules that the prompt satisfies.
 > and using clingo to assess the safety , comparing with ASP
