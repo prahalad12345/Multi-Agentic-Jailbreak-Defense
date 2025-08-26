@@ -26,5 +26,5 @@ add to the agent and agent planner where gemini is being used
     uv run loop_client.py
     ```
 
-![Planner](Image/Planner.png)
+![Planner](../Image/Planner.png)
    
